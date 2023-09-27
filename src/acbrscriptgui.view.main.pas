@@ -46,6 +46,7 @@ type
     ActLazarusCheckInstall: TAction;
     ActionList1: TActionList;
     buttonDownload: TSpeedButton;
+    cbox_verbose: TCheckBox;
     edtPathACBr: TEditButton;
     edtPathLazarus: TEditButton;
     imagePowered: TImage;
@@ -55,6 +56,7 @@ type
     buttonValidatePathACBr: TSpeedButton;
     buttonValidatePathLazarus: TSpeedButton;
     outputScreen: TMemo;
+    pnl_Area_Dock: TPanel;
     StaticText2: TLabel;
     verticalTitle: TLabel;
     PaintBox1: TPaintBox;
@@ -72,6 +74,7 @@ type
     procedure edtPathACBrButtonClick(Sender: TObject);
     procedure edtPathLazarusButtonClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure outputScreenChange(Sender: TObject);
@@ -133,6 +136,7 @@ procedure TFormMain.ActACBrCheckInstallExecute(Sender: TObject);
 var
   i: integer = 0;
 begin
+  edtPathACBr.Hint:=edtPathACBr.Text;
   strListACBr := FindAllFiles(edtPathACBr.Text, '*.lpk', True);
   try
     for i := 0 to strListACBr.Count - 1 do
@@ -150,23 +154,29 @@ begin
     dialogBoxAutoClose('', 'VALIDE SEU PATH NO ÍCONE VERMELHO', 4);
     exit;
   end;
-
+  ActInstall.Enabled:=false;
   try
     TimeOld := Now;
+    outputScreen.Clear;
+    outputScreen.Color := clCream;
+    outputScreen.Font.Color := clBlack;
+    // todo: ExecuteAddPackges and ExecuteBuildIDE needs to returning the error code if compilation failed
     ExecuteAddPackges;
     ExecuteBuildIDE;
   finally
     TimeFinish := TimeOld - now;
-    dialogBoxAutoClose('', 'ACBr FOI INSTALADO NO LAZARUS! ' + sLineBreak + TimeToStr(TimeFinish), 6);
+    outputScreen.Lines.Append('ACBr FOI INSTALADO NO LAZARUS! ' + sLineBreak + TimeToStr(TimeFinish));
+    //dialogBoxAutoClose('', 'ACBr FOI INSTALADO NO LAZARUS! ' + sLineBreak + TimeToStr(TimeFinish), 6);
     buttonValidatePathACBr.ImageIndex := 3;
     buttonValidatePathLazarus.ImageIndex := buttonValidatePathACBr.ImageIndex;
 
-    outputScreen.Clear;
+    //outputScreen.Clear;
     outputScreen.Color := clCream;
     outputScreen.Font.Color := clBlack;
-    edtPathACBr.Clear;
-    edtPathLazarus.Clear;
+    edtPathACBr.Text:=edtPathACBr.TextHint;
+    edtPathLazarus.Text:=edtPathLazarus.TextHint;
   end;
+  ActInstall.Enabled:=true;
 end;
 
 { **************** AddPackges **************** }
@@ -188,6 +198,9 @@ begin
     AProcess := TProcess.Create(nil);
     try
       AProcess.CommandLine:= concat(fPath,' --add-package-link ', strListACBr.Strings[i]);
+      AProcess.CurrentDirectory:=edtPathLazarus.Text;
+      if cbox_verbose.Checked then
+        outputScreen.Lines.Append(String(AProcess.CommandLine)); // more verbose
       AProcess.Options := [poUsePipes, poStdErrToOutput];
       AProcess.ShowWindow := swoHIDE;
       ///
@@ -239,9 +252,10 @@ var
   SStream: TStringStream;
   nread: longint;
 begin
-  outputScreen.Clear;
+  //outputScreen.Clear;
   AProcess := TProcess.Create(nil);
   AProcess.Executable := IncludeTrailingPathDelimiter(edtPathLazarus.Text) + 'lazbuild';
+  AProcess.CurrentDirectory:=edtPathLazarus.Text;
   AProcess.Parameters.Add('--build-ide=');
   AProcess.Options := [poUsePipes, poStdErrToOutput];
 
@@ -249,6 +263,8 @@ begin
   Getmem(Buffer, C_BUFSIZE);
   SStream := TStringStream.Create('');
   ///
+  if cbox_verbose.Checked then
+    outputScreen.Lines.Append(String(AProcess.Executable));  // more verbose
   AProcess.Execute;
   while AProcess.Running do
   begin
@@ -282,7 +298,8 @@ var
   sl: TStringList;
   i: integer =0 ;
 begin
-  outputScreen.Clear;
+  //outputScreen.Clear;
+  edtPathLazarus.TextHint:=edtPathLazarus.Text;
   sl := FindAllFiles(edtPathLazarus.Text, 'lazbuild.*', True);
   try
     for i := 0 to sl.Count - 1 do
@@ -307,6 +324,17 @@ end;
 procedure TFormMain.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   CloseAction := caFree;
+end;
+
+procedure TFormMain.FormCreate(Sender: TObject);
+begin
+  edtPathACBr.TextHint:='C:\ACBr';
+  edtPathLazarus.TextHint:='C:\lazarus';
+  edtPathACBr.Text:=edtPathACBr.TextHint;
+  edtPathLazarus.Text:=edtPathLazarus.TextHint;
+  outputScreen.Clear;
+  outputScreen.Color := clCream;
+  outputScreen.Font.Color := clBlack;
 end;
 
 
